@@ -22,7 +22,7 @@ pip install -r requirements.txt
 ```
 - 手动配置pytesseract路径  
     - 首先找到pytesseract的安装位置 pip show pytesseract
-    - 例如我是d:\s-code\self\pctools\venv\lib\site-packages\pytesseract
+    - 例如我是d:\s-code\self\auto_trans\venv\lib\site-packages\pytesseract
     - 打开pytesseract.py,找到这句
     ```
     tesseract_cmd = 'tesseract'
