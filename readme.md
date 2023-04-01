@@ -8,6 +8,10 @@
 - pykakasi为汉字注音
 - 做好之后发现tesseract在实际使用中对竖排日文的识别效率较低,所以又做了剪贴板的监听功能,可以配合[manga-ocr](https://github.com/kha-white/manga-ocr)使用
 
+### 界面
+<img src="https://github.com/umas2022/auto_trans/blob/main/readme/shot.jpg" width="50%" height="50%">
+
+
 
 ### 安装tesseract
 - tesseractd官方网站[下载](https://tesseract-ocr.github.io/tessdoc/Installation.html) 
