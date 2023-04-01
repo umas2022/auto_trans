@@ -1,7 +1,7 @@
 # 自助翻译.exe
 
 ### 简介
-- 想在ocr查词时能够看到汉字的注音,所以做了这个
+- 想在漫画ocr翻译的时候能够看到汉字的注音,所以做了这个
 - cv2全屏截图后将图片无边框全屏显示,保存矩形框选区域
 - tesseract-ocr工具识别图像中的文字,需要首先本地安装tesseract
 - deep_translator.GoogleTranslator谷歌翻译接口
