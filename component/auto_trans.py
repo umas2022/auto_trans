@@ -105,7 +105,7 @@ class AutoTrans():
             logger.error(err_msg)
             return err_msg
     
-    def get_translate(self,text,source,translate)->str:
+    def get_trans_google(self,text,source,translate)->str:
         '''调用谷歌接口翻译文本\n
         source = ['ja']\n
         translate = ['zh-CN']'''
@@ -118,7 +118,7 @@ class AutoTrans():
             text = self.get_text(self.jpg_path,self.target)
             logger.info("target: %s" % text)
             if self.target in ["jpn", "jpn_vert"]:
-                translated = self.get_translate(text,"ja",self.translate)
+                translated = self.get_trans_google(text,"ja",self.translate)
                 logger.info("romaji: %s" % self.get_romaji(text))
                 logger.info("translate: %s" % translated)
             else:

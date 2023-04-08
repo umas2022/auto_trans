@@ -209,7 +209,7 @@ class PageFunction(QWidget):
         self.raw_box.setText(self.text["raw"])
         self.text["romaji"] = ats.get_romaji(self.text["raw"])
         self.roma_box.setText(self.text["romaji"])
-        self.text["translated"] = ats.get_translate(self.text["raw"], gbconfig["source"], gbconfig["translate"])
+        self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
         self.trans_box.setText(self.text["translated"])
 
     def on_combobox_changed(self, index):
@@ -233,7 +233,7 @@ class PageFunction(QWidget):
             self.raw_box.setText(self.text["raw"])
             self.text["romaji"] = ats.get_romaji(self.text["raw"])
             self.roma_box.setText(self.text["romaji"])
-            self.text["translated"] = ats.get_translate(self.text["raw"], gbconfig["source"], gbconfig["translate"])
+            self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
             self.trans_box.setText(self.text["translated"])
         except Exception as err:
             logger.error("img save error : %s" % err)
@@ -248,7 +248,7 @@ class PageFunction(QWidget):
         ats = AutoTrans(gbconfig)
         self.text["romaji"] = ats.get_romaji(self.text["raw"])
         self.roma_box.setText(self.text["romaji"])
-        self.text["translated"] = ats.get_translate(self.text["raw"], gbconfig["source"], gbconfig["translate"])
+        self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
         self.trans_box.setText(self.text["translated"])
 
     def on_text_change(self):
