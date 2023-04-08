@@ -9,8 +9,8 @@ import pyperclip
 import threading
 import subprocess
 from PIL import Image
-from PyQt6.QtGui import QIcon, QFont
-from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon, QFont,QDesktopServices
+from PyQt6.QtCore import Qt,QUrl
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -443,8 +443,15 @@ class PageInfo(QWidget):
             label.setWordWrap(True)
             label.setFont(font)
             layout_main.addWidget(label)
-        layout_main.addStretch()
+
+        # 链接
+        url = QLabel("Visit <a href='https://github.com/umas2022/auto_trans'>Github</a>")
+        url.setOpenExternalLinks(True)
+        url.setFont(font)
+        layout_main.addWidget(url)
+        
         # 主体布局
+        layout_main.addStretch()
         self.setLayout(layout_main)
 
 
