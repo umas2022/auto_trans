@@ -183,9 +183,13 @@ class PageFunction(QWidget):
         # 主体布局
         self.setLayout(layout_main)
 
+        # 文本框监听
+        self.msg_box = Communicate()
+        self.msg_box.dataChanged.connect(self.on_box_changed)
+
         # 剪贴板监听
-        self.messenger = Communicate()
-        self.messenger.dataChanged.connect(self.on_clipboard_changed)
+        self.msg_cb = Communicate()
+        self.msg_cb.dataChanged.connect(self.on_clipboard_changed)
         self.old_clipboard = pyperclip.paste()
         if gbconfig["cblisten"]:
             listen_th = threading.Timer(1, self.listen_clipboard)
@@ -196,7 +200,7 @@ class PageFunction(QWidget):
         new_clipboard = pyperclip.paste()
         if new_clipboard != self.old_clipboard:
             self.old_clipboard = new_clipboard
-            self.messenger.dataChanged.emit(new_clipboard)
+            self.msg_cb.dataChanged.emit(new_clipboard)
         # 循环回调
         if gbconfig["cblisten"]:
             call_self = threading.Timer(1, self.listen_clipboard)
@@ -207,10 +211,30 @@ class PageFunction(QWidget):
         ats = AutoTrans(gbconfig)
         self.text["raw"] = new_clipboard
         self.raw_box.setText(self.text["raw"])
-        self.text["romaji"] = ats.get_romaji(self.text["raw"])
+        # 更新原文框
+        def new_raw():
+            self.msg_box.dataChanged.emit("")
+        # 更新注音框
+        def new_romaji():
+            self.text["romaji"] = ats.get_romaji(self.text["raw"])
+            self.msg_box.dataChanged.emit("")
+        # 更新翻译框
+        def new_trans():
+            self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
+            self.msg_box.dataChanged.emit("")
+        th_raw = threading.Thread(target=new_raw)
+        th_raw.start()
+        th_romaji = threading.Thread(target=new_romaji)
+        th_romaji.start()
+        th_trans = threading.Thread(target=new_trans)
+        th_trans.start()
+
+    def on_box_changed(self):
+        '''函数触发,刷新三个文本框的显示'''
+        self.raw_box.setText(self.text["raw"])
         self.roma_box.setText(self.text["romaji"])
-        self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
         self.trans_box.setText(self.text["translated"])
+
 
     def on_combobox_changed(self, index):
         '''下拉框: 选择语言'''
@@ -223,6 +247,17 @@ class PageFunction(QWidget):
         '''按钮: 启动截图'''
         ats = AutoTrans(gbconfig)
         ats.startShot()
+        # 更新原文框
+        def new_raw():
+            self.msg_box.dataChanged.emit("")
+        # 更新注音框
+        def new_romaji():
+            self.text["romaji"] = ats.get_romaji(self.text["raw"])
+            self.msg_box.dataChanged.emit("")
+        # 更新翻译框
+        def new_trans():
+            self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
+            self.msg_box.dataChanged.emit("")
         try:
             img_path = os.path.join(gbconfig["save_path"], "shot.jpg")
             img_en_path = os.path.join(gbconfig["save_path"], "shot_en.jpg")
@@ -230,11 +265,12 @@ class PageFunction(QWidget):
             img_en = enhance(img)
             img_en.save(img_en_path)
             self.text["raw"] = ats.get_text_img(img, gbconfig["target"])
-            self.raw_box.setText(self.text["raw"])
-            self.text["romaji"] = ats.get_romaji(self.text["raw"])
-            self.roma_box.setText(self.text["romaji"])
-            self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
-            self.trans_box.setText(self.text["translated"])
+            th_raw = threading.Thread(target=new_raw)
+            th_raw.start()
+            th_romaji = threading.Thread(target=new_romaji)
+            th_romaji.start()
+            th_trans = threading.Thread(target=new_trans)
+            th_trans.start()
         except Exception as err:
             logger.error("img save error : %s" % err)
             self.raw_box.setText("缓存路径不存在 ...")

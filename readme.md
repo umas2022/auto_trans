@@ -56,7 +56,7 @@ python build_qt.py
 - cv2全屏截图后将图片无边框全屏显示,保存矩形框选区域
 - tesseract-ocr工具识别图像中的文字,需要首先本地安装tesseract
 - deep_translator.GoogleTranslator谷歌翻译接口
-- pykakasi为汉字注音
+- pykakasi为汉字注音;注音仅供参考,这个库对多音字的标注效果不好
 - 做好之后发现tesseract在实际使用中对竖排日文的识别效率较低,所以又做了剪贴板的监听功能,配合[manga-ocr](https://github.com/kha-white/manga-ocr)使用
 
 
