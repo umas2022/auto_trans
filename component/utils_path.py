@@ -1,3 +1,7 @@
+'''
+定位项目绝对路径
+'''
+
 import os
 
 def abs_path(relative_path):

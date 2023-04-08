@@ -5,11 +5,9 @@
 
 
 import os
-import subprocess
 import cv2
 import numpy as np
 import pyautogui
-from PIL import ImageGrab
 from PIL import Image
 import pytesseract  # pip install pytesseract # 需要配置pytesseract路径
 from deep_translator import GoogleTranslator  # pip install deep-translator
@@ -94,15 +92,18 @@ class AutoTrans():
             img = Image.open(jpg_path)
         except:
             img = Image.open(os.path.join(jpg_path,"shot.jpg"))
-        text = pytesseract.image_to_string(img, lang=target)
-        text = str(text).replace(" ", "").replace("\n", "")
-        return text
+        return self.get_text_img(img)
     
     def get_text_img(self,img,target)->str:
-        '''和上面的一样,只是输入参数是已经读取好的img'''
-        text = pytesseract.image_to_string(img, lang=target)
-        text = str(text).replace(" ", "").replace("\n", "")
-        return text
+        '''和上面的一样,只是输入参数是使用Image.open读取的img'''
+        try:
+            text = pytesseract.image_to_string(img, lang=target)
+            text = str(text).replace(" ", "").replace("\n", "")
+            return text
+        except Exception as err:
+            err_msg = "tesseract error : %s" %err
+            logger.error(err_msg)
+            return err_msg
     
     def get_translate(self,text,source,translate)->str:
         '''调用谷歌接口翻译文本\n

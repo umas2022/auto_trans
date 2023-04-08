@@ -1,8 +1,6 @@
 '''设置logger'''
 
 import logging
-import time
-import os
 
 logger = logging.getLogger('py_demo')
 

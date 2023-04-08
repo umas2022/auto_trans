@@ -1,13 +1,16 @@
+'''
+2023.3.31
+自助翻译qt主窗体
+'''
 import sys
 import os
 import json
-import cv2
 import pyperclip
-import time
 import threading
+import subprocess
 from PIL import Image
-from PyQt6.QtGui import QPalette, QColor, QIcon,QFont
-from PyQt6.QtCore import QSize, Qt,pyqtSignal
+from PyQt6.QtGui import QIcon, QFont
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -36,8 +39,10 @@ global gbconfig
 with open(abs_path("component/config.json"), "r", encoding="utf-8") as conf_file:
     gbconfig = json.load(conf_file)
 
+
 class MainWindow(QMainWindow):
     '''主窗体'''
+
     def __init__(self):
         super(MainWindow, self).__init__()
 
@@ -65,8 +70,6 @@ class MainWindow(QMainWindow):
         # 关闭剪贴板监听的循环回调,否则Thread不会随着主进程的结束自动结束
         gbconfig["cblisten"] = False
         event.accept()
-
-
 
 
 class PageFunction(QWidget):
@@ -102,10 +105,11 @@ class PageFunction(QWidget):
         if gbconfig["cblisten"]:
             checkb.setCheckState(Qt.CheckState.Checked)
         layout_line.addWidget(checkb)
+
         def checkb_change():
             gbconfig["cblisten"] = checkb.isChecked()
             if gbconfig["cblisten"]:
-                listen_th = threading.Timer(1,self.listen_clipboard)
+                listen_th = threading.Timer(1, self.listen_clipboard)
                 listen_th.start()
         checkb.stateChanged.connect(checkb_change)
 
@@ -119,7 +123,7 @@ class PageFunction(QWidget):
         cbox.currentIndexChanged.connect(lambda index: self.on_combobox_changed(index))
         layout_line.addWidget(cbox)
         # 设置初值
-        for index,option in enumerate(gbconfig["__target"]["options"]) :
+        for index, option in enumerate(gbconfig["__target"]["options"]):
             if option["value"] == gbconfig["target"]:
                 cbox.setCurrentIndex(index)
 
@@ -135,8 +139,6 @@ class PageFunction(QWidget):
         btn_new = QPushButton("重新翻译")
         btn_new.clicked.connect(self.on_click_new)
         layout_line.addWidget(btn_new)
-
-        
 
         # 文本区: 原文
         layout_line = QHBoxLayout()
@@ -186,7 +188,7 @@ class PageFunction(QWidget):
         self.messenger.dataChanged.connect(self.on_clipboard_changed)
         self.old_clipboard = pyperclip.paste()
         if gbconfig["cblisten"]:
-            listen_th = threading.Timer(1,self.listen_clipboard)
+            listen_th = threading.Timer(1, self.listen_clipboard)
             listen_th.start()
 
     def listen_clipboard(self):
@@ -197,10 +199,10 @@ class PageFunction(QWidget):
             self.messenger.dataChanged.emit(new_clipboard)
         # 循环回调
         if gbconfig["cblisten"]:
-            call_self = threading.Timer(1,self.listen_clipboard)
+            call_self = threading.Timer(1, self.listen_clipboard)
             call_self.start()
 
-    def on_clipboard_changed(self,new_clipboard):
+    def on_clipboard_changed(self, new_clipboard):
         '''剪贴板改变触发'''
         ats = AutoTrans(gbconfig)
         self.text["raw"] = new_clipboard
@@ -209,7 +211,6 @@ class PageFunction(QWidget):
         self.roma_box.setText(self.text["romaji"])
         self.text["translated"] = ats.get_translate(self.text["raw"], gbconfig["source"], gbconfig["translate"])
         self.trans_box.setText(self.text["translated"])
-        
 
     def on_combobox_changed(self, index):
         '''下拉框: 选择语言'''
@@ -222,24 +223,25 @@ class PageFunction(QWidget):
         '''按钮: 启动截图'''
         ats = AutoTrans(gbconfig)
         ats.startShot()
-        img_path = os.path.join(gbconfig["save_path"],"shot.jpg")
-        img_en_path = os.path.join(gbconfig["save_path"],"shot_en.jpg")
-        img = Image.open(img_path)
-        img_en = enhance(img)
-        img_en.save(img_en_path)
-
-        self.text["raw"] = ats.get_text_img(img, gbconfig["target"])
-        self.raw_box.setText(self.text["raw"])
-        self.text["romaji"] = ats.get_romaji(self.text["raw"])
-        self.roma_box.setText(self.text["romaji"])
-        self.text["translated"] = ats.get_translate(self.text["raw"], gbconfig["source"], gbconfig["translate"])
-        self.trans_box.setText(self.text["translated"])
+        try:
+            img_path = os.path.join(gbconfig["save_path"], "shot.jpg")
+            img_en_path = os.path.join(gbconfig["save_path"], "shot_en.jpg")
+            img = Image.open(img_path)
+            img_en = enhance(img)
+            img_en.save(img_en_path)
+            self.text["raw"] = ats.get_text_img(img, gbconfig["target"])
+            self.raw_box.setText(self.text["raw"])
+            self.text["romaji"] = ats.get_romaji(self.text["raw"])
+            self.roma_box.setText(self.text["romaji"])
+            self.text["translated"] = ats.get_translate(self.text["raw"], gbconfig["source"], gbconfig["translate"])
+            self.trans_box.setText(self.text["translated"])
+        except Exception as err:
+            logger.error("img save error : %s" % err)
+            self.raw_box.setText("缓存路径不存在 ...")
 
         # 识别失败
         if self.text["raw"] == "":
             self.raw_box.setText("识别失败 ...")
-        # 删除图片
-        # os.remove(os.path.join(gbconfig["save_path"], "shot.jpg"))
 
     def on_click_new(self):
         '''按钮: 重新翻译'''
@@ -264,7 +266,7 @@ class PageSettings(QWidget):
         layout_main.setContentsMargins(10, 10, 10, 10)
         layout_main.setSpacing(5)
 
-        for key in gbconfig :
+        for key in gbconfig:
             if not key[0] == "_":
                 continue
             set_item = gbconfig[key]
@@ -283,7 +285,7 @@ class PageSettings(QWidget):
                 cbox.currentIndexChanged.connect(lambda index, key=key: self.on_combobox_changed(index, key))
                 new_line.addWidget(cbox)
                 # 设置初值
-                for index,option in enumerate(set_item["options"]) :
+                for index, option in enumerate(set_item["options"]):
                     if option["value"] == set_value:
                         cbox.setCurrentIndex(index)
                 # 布局
@@ -323,38 +325,66 @@ class PageSettings(QWidget):
                 new_line.addWidget(txtl)
                 layout_main.addLayout(new_line)
 
-
-
+            # 设置QPushButton按钮
+            elif set_item["type"] == "button":
+                new_line = QHBoxLayout()
+                # 标签
+                label = QLabel(set_item['label'])
+                label.setFixedWidth(100)
+                new_line.addWidget(label)
+                # 按钮
+                btn = QPushButton(set_item['label_button'])
+                called_func = getattr(self, set_value)
+                btn.clicked.connect(called_func)
+                # 布局
+                new_line.addWidget(btn)
+                layout_main.addLayout(new_line)
 
         # 主体布局
         layout_main.addStretch()
         self.setLayout(layout_main)
 
-
     def on_combobox_changed(self, index, __key):
         '''下拉框被改变'''
         key = __key[2:]
         gbconfig[key] = gbconfig[__key]["options"][index]["value"]
-        with open(abs_path("component/config.json"),"w",encoding="utf-8") as conf_file:
+        with open(abs_path("component/config.json"), "w", encoding="utf-8") as conf_file:
             conf_file.write(json.dumps(gbconfig, ensure_ascii=False))
 
     def on_lineedit_changed(self, text, __key):
         '''输入框被改变'''
         key = __key[2:]
         gbconfig[key] = text
-        with open(abs_path("component/config.json"),"w",encoding="utf-8") as conf_file:
+        with open(abs_path("component/config.json"), "w", encoding="utf-8") as conf_file:
             conf_file.write(json.dumps(gbconfig, ensure_ascii=False))
 
     def on_checkbox_changed(self, state, __key):
         '''复选框被改变'''
         key = __key[2:]
         gbconfig[key] = True if state else False
-        with open(abs_path("component/config.json"),"w",encoding="utf-8") as conf_file:
+        with open(abs_path("component/config.json"), "w", encoding="utf-8") as conf_file:
             conf_file.write(json.dumps(gbconfig, ensure_ascii=False))
+
+    def btn_manga_ocr_install(self):
+        '''按钮:安装manga-ocr,使用threading避免程序卡死'''
+        install_script = abs_path("component/sp_manga_ocr_install.py")
+        def go():
+            subprocess.run(["python", install_script], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        go_th = threading.Thread(target=go)
+        go_th.start()
+
+    def btn_manga_ocr_start(self):
+        '''按钮:启动manga-ocr,使用threading避免程序卡死'''
+        install_script = abs_path("component/sp_manga_ocr_start.py")
+        def go():
+            subprocess.run(["python", install_script], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        go_th = threading.Thread(target=go)
+        go_th.start()
 
 
 class PageInfo(QWidget):
     '''关于标签页'''
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -363,9 +393,9 @@ class PageInfo(QWidget):
         layout_main.setSpacing(5)
 
         info_text = [
-            "1.点击截图按钮框选屏幕截图,空格或回车键确定框选",
-            "2.识别到的原文内容可以手动修改,再点击重新翻译按钮可以对修改后的原文进行翻译",
-            "3.设置页没有即时更新,修改设置之后重启应用才能生效",
+            "祝使用愉快",
+            "by:umas",
+            "2023.4.1"
         ]
 
         font = QFont()
