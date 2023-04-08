@@ -8,9 +8,11 @@ import json
 import pyperclip
 import threading
 import subprocess
+import keyboard
+import time
 from PIL import Image
-from PyQt6.QtGui import QIcon, QFont,QDesktopServices
-from PyQt6.QtCore import Qt,QUrl
+from PyQt6.QtGui import QIcon, QFont
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -91,20 +93,49 @@ class PageFunction(QWidget):
         layout_main.setContentsMargins(0, 10, 0, 0)
         layout_main.setSpacing(5)
 
-        # 第一行下拉框/两个按钮/复选框
+        # 第一行
         layout_line = QHBoxLayout()
-        groupbox = QGroupBox("控制")
-        layout_main.addWidget(groupbox)
-        groupbox.setLayout(layout_line)
+        layout_main.addLayout(layout_line)
 
-        # 第一行: 标签
+        # 第一行tesseract
+        layout_tes = QHBoxLayout()
+        groupbox = QGroupBox("tesseract")
+        layout_line.addWidget(groupbox)
+        groupbox.setLayout(layout_tes)
+
+        # tesseract: 标签
+        label = QLabel("目标:")
+        layout_tes.addWidget(label)
+        # tesseract: 下拉框: 选择语言
+        cbox = QComboBox()
+        # cbox.setFixedWidth(100)
+        cbox.addItems([i['label'] for i in gbconfig["__target"]["options"]])
+        cbox.currentIndexChanged.connect(lambda index: self.on_combobox_changed(index))
+        layout_tes.addWidget(cbox)
+        # tesseract: 设置初值
+        for index, option in enumerate(gbconfig["__target"]["options"]):
+            if option["value"] == gbconfig["target"]:
+                cbox.setCurrentIndex(index)
+
+        # tesseract: 按钮: 截图
+        btn_start = QPushButton("截图")
+        btn_start.clicked.connect(self.on_click_tesseract)
+        layout_tes.addWidget(btn_start)
+
+        # 第一行manga-ocr
+        layout_mao = QHBoxLayout()
+        groupbox = QGroupBox("manga-ocr")
+        layout_line.addWidget(groupbox)
+        groupbox.setLayout(layout_mao)
+
+        # manga-ocr: 标签
         label = QLabel("剪贴板:")
-        layout_line.addWidget(label)
-        # 第一行: 复选框
+        layout_mao.addWidget(label)
+        # manga-ocr: 复选框
         checkb = QCheckBox()
         if gbconfig["cblisten"]:
             checkb.setCheckState(Qt.CheckState.Checked)
-        layout_line.addWidget(checkb)
+        layout_mao.addWidget(checkb)
 
         def checkb_change():
             gbconfig["cblisten"] = checkb.isChecked()
@@ -113,32 +144,11 @@ class PageFunction(QWidget):
                 listen_th.start()
         checkb.stateChanged.connect(checkb_change)
 
-        # 第一行: 标签
-        label = QLabel("目标:")
-        layout_line.addWidget(label)
-        # 第一行: 下拉框: 选择语言
-        cbox = QComboBox()
-        cbox.setFixedWidth(120)
-        cbox.addItems([i['label'] for i in gbconfig["__target"]["options"]])
-        cbox.currentIndexChanged.connect(lambda index: self.on_combobox_changed(index))
-        layout_line.addWidget(cbox)
-        # 设置初值
-        for index, option in enumerate(gbconfig["__target"]["options"]):
-            if option["value"] == gbconfig["target"]:
-                cbox.setCurrentIndex(index)
-
-        # 第一行: 弹簧
-        layout_line.addStretch()
-
-        # 第一行: 按钮: 截图
+        # manga-ocr: 按钮: 截图
         btn_start = QPushButton("截图")
-        btn_start.clicked.connect(self.on_click_start)
-        layout_line.addWidget(btn_start)
+        btn_start.clicked.connect(self.on_click_manga)
+        layout_mao.addWidget(btn_start)
 
-        # 第一行: 按钮: 重新翻译
-        btn_new = QPushButton("重新翻译")
-        btn_new.clicked.connect(self.on_click_new)
-        layout_line.addWidget(btn_new)
 
         # 文本区: 原文
         layout_line = QHBoxLayout()
@@ -180,6 +190,11 @@ class PageFunction(QWidget):
         self.trans_box.setPlaceholderText("这里显示译文")
         layout_line.addWidget(self.trans_box)
 
+        # 底部按钮: 重新翻译
+        btn_new = QPushButton("重新翻译")
+        btn_new.clicked.connect(self.on_click_new)
+        layout_main.addWidget(btn_new)
+
         # 主体布局
         self.setLayout(layout_main)
 
@@ -212,13 +227,16 @@ class PageFunction(QWidget):
         self.text["raw"] = new_clipboard
         self.raw_box.setText(self.text["raw"])
         # 更新原文框
+
         def new_raw():
             self.msg_box.dataChanged.emit("")
         # 更新注音框
+
         def new_romaji():
             self.text["romaji"] = ats.get_romaji(self.text["raw"])
             self.msg_box.dataChanged.emit("")
         # 更新翻译框
+
         def new_trans():
             self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
             self.msg_box.dataChanged.emit("")
@@ -235,7 +253,6 @@ class PageFunction(QWidget):
         self.roma_box.setText(self.text["romaji"])
         self.trans_box.setText(self.text["translated"])
 
-
     def on_combobox_changed(self, index):
         '''下拉框: 选择语言'''
         if index == 0:
@@ -243,18 +260,21 @@ class PageFunction(QWidget):
         elif index == 1:
             gbconfig["target"] = "jpn"
 
-    def on_click_start(self):
-        '''按钮: 启动截图'''
+    def on_click_tesseract(self):
+        '''按钮: 启动tesseract截图'''
         ats = AutoTrans(gbconfig)
         ats.startShot()
         # 更新原文框
+
         def new_raw():
             self.msg_box.dataChanged.emit("")
         # 更新注音框
+
         def new_romaji():
             self.text["romaji"] = ats.get_romaji(self.text["raw"])
             self.msg_box.dataChanged.emit("")
         # 更新翻译框
+
         def new_trans():
             self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
             self.msg_box.dataChanged.emit("")
@@ -278,6 +298,13 @@ class PageFunction(QWidget):
         # 识别失败
         if self.text["raw"] == "":
             self.raw_box.setText("识别失败 ...")
+
+    def on_click_manga(self):
+        '''按钮: 启动win+shift+s截图'''
+        keyboard.press_and_release('win+shift+s')
+        # 等待一段时间，确保截图工具已经启动
+        time.sleep(0.5)
+
 
     def on_click_new(self):
         '''按钮: 重新翻译'''
@@ -404,6 +431,7 @@ class PageSettings(QWidget):
     def btn_manga_ocr_install(self):
         '''按钮:安装manga-ocr,使用threading避免程序卡死'''
         install_script = abs_path("component/sp_manga_ocr_install.py")
+
         def go():
             subprocess.run(["python", install_script], creationflags=subprocess.CREATE_NEW_CONSOLE)
         go_th = threading.Thread(target=go)
@@ -412,6 +440,7 @@ class PageSettings(QWidget):
     def btn_manga_ocr_start(self):
         '''按钮:启动manga-ocr,使用threading避免程序卡死'''
         install_script = abs_path("component/sp_manga_ocr_start.py")
+
         def go():
             subprocess.run(["python", install_script], creationflags=subprocess.CREATE_NEW_CONSOLE)
         go_th = threading.Thread(target=go)
@@ -449,7 +478,7 @@ class PageInfo(QWidget):
         url.setOpenExternalLinks(True)
         url.setFont(font)
         layout_main.addWidget(url)
-        
+
         # 主体布局
         layout_main.addStretch()
         self.setLayout(layout_main)
