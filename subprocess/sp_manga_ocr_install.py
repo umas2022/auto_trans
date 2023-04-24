@@ -10,7 +10,12 @@
 '''
 
 import subprocess
-from utils_path import abs_path
+
+import sys,os
+script_path =os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(script_path)
+
+from utils.utils_path import abs_path
 
 venv_path = abs_path("venv39")
 vpython = abs_path("venv39\\Scripts\\python.exe")

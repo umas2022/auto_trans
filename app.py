@@ -29,16 +29,16 @@ from PyQt6.QtWidgets import (
     QCheckBox
 )
 
-from component.auto_trans import AutoTrans
-from component.utils_logger import logger
-from component.utils_path import abs_path
-from component.utils_enhance import enhance
-from component.utils_msg import Communicate
+from translator.auto_trans import AutoTrans
+from utils.utils_logger import logger
+from utils.utils_path import abs_path
+from utils.utils_enhance import enhance
+from utils.utils_msg import Communicate
 
 
 global gbconfig
 # 加载设置
-with open(abs_path("component/config.json"), "r", encoding="utf-8") as conf_file:
+with open(abs_path("translator/config.json"), "r", encoding="utf-8") as conf_file:
     gbconfig = json.load(conf_file)
 
 
@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
         # 窗口名/大小/图标/布局
         self.setWindowTitle("独立电脑配件-自助翻译")
         layout_main = QVBoxLayout()
-        self.setWindowIcon(QIcon(abs_path("static/mati_ei_256.ico")))
+        self.setWindowIcon(QIcon(abs_path("static/tenpula_256.ico")))
 
         # 创建 QTabWidget
         tab_widget = QTabWidget()
@@ -75,7 +75,7 @@ class MainWindow(QMainWindow):
 
 
 class PageFunction(QWidget):
-    '''功能标签页'''
+    '''标签页:功能'''
 
     def __init__(self) -> None:
         super().__init__()
@@ -85,8 +85,10 @@ class PageFunction(QWidget):
             "raw": "",
             # 注音
             "romaji": "",
-            # 翻译
-            "translated": ""
+            # 谷歌翻译
+            "google": "",
+            # chatgpt翻译
+            "chatgpt": ""
         }
 
         layout_main = QVBoxLayout()
@@ -109,12 +111,12 @@ class PageFunction(QWidget):
         # tesseract: 下拉框: 选择语言
         cbox = QComboBox()
         # cbox.setFixedWidth(100)
-        cbox.addItems([i['label'] for i in gbconfig["__target"]["options"]])
+        cbox.addItems([i['label'] for i in gbconfig["__ocr_source"]["options"]])
         cbox.currentIndexChanged.connect(lambda index: self.on_combobox_changed(index))
         layout_tes.addWidget(cbox)
         # tesseract: 设置初值
-        for index, option in enumerate(gbconfig["__target"]["options"]):
-            if option["value"] == gbconfig["target"]:
+        for index, option in enumerate(gbconfig["__ocr_source"]["options"]):
+            if option["value"] == gbconfig["ocr_source"]:
                 cbox.setCurrentIndex(index)
 
         # tesseract: 按钮: 截图
@@ -149,7 +151,6 @@ class PageFunction(QWidget):
         btn_start.clicked.connect(self.on_click_manga)
         layout_mao.addWidget(btn_start)
 
-
         # 文本区: 原文
         layout_line = QHBoxLayout()
         groupbox = QGroupBox("原文")
@@ -177,18 +178,31 @@ class PageFunction(QWidget):
         self.roma_box.setPlaceholderText("这里显示注音")
         layout_line.addWidget(self.roma_box)
 
-        # 文本区: 翻译
+        # 文本区: 谷歌翻译
         layout_line = QHBoxLayout()
-        groupbox = QGroupBox("译文")
+        groupbox = QGroupBox("译文(google)")
         layout_main.addWidget(groupbox)
         groupbox.setLayout(layout_line)
 
-        self.trans_box = QTextEdit()
-        self.trans_box.setMaximumHeight(100)
-        self.trans_box.setMinimumWidth(400)
-        self.trans_box.setFontPointSize(int(gbconfig["fontsize"]))
-        self.trans_box.setPlaceholderText("这里显示译文")
-        layout_line.addWidget(self.trans_box)
+        self.google_box = QTextEdit()
+        self.google_box.setMaximumHeight(100)
+        self.google_box.setMinimumWidth(400)
+        self.google_box.setFontPointSize(int(gbconfig["fontsize"]))
+        self.google_box.setPlaceholderText("这里显示译文")
+        layout_line.addWidget(self.google_box)
+
+        # 文本区: chatgpt翻译
+        layout_line = QHBoxLayout()
+        groupbox = QGroupBox("译文(chatgpt)")
+        layout_main.addWidget(groupbox)
+        groupbox.setLayout(layout_line)
+
+        self.chatgpt_box = QTextEdit()
+        self.chatgpt_box.setMaximumHeight(100)
+        self.chatgpt_box.setMinimumWidth(400)
+        self.chatgpt_box.setFontPointSize(int(gbconfig["fontsize"]))
+        self.chatgpt_box.setPlaceholderText("这里显示译文")
+        layout_line.addWidget(self.chatgpt_box)
 
         # 底部按钮: 重新翻译
         btn_new = QPushButton("重新翻译")
@@ -223,7 +237,7 @@ class PageFunction(QWidget):
 
     def on_clipboard_changed(self, new_clipboard):
         '''剪贴板改变触发'''
-        ats = AutoTrans(gbconfig)
+        ats = AutoTrans(gbconfig["save_path"])
         self.text["raw"] = new_clipboard
         self.raw_box.setText(self.text["raw"])
         # 更新原文框
@@ -238,7 +252,8 @@ class PageFunction(QWidget):
         # 更新翻译框
 
         def new_trans():
-            self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
+            self.text["google"] = ats.get_trans_google(self.text["raw"], gbconfig["trans_source"], gbconfig["google_target"])
+            self.text["chatgpt"] = ats.get_trans_gpt(self.text["raw"], gbconfig["chatgpt_target"], gbconfig["api_key"])
             self.msg_box.dataChanged.emit("")
         th_raw = threading.Thread(target=new_raw)
         th_raw.start()
@@ -251,32 +266,37 @@ class PageFunction(QWidget):
         '''函数触发,刷新三个文本框的显示'''
         self.raw_box.setText(self.text["raw"])
         self.roma_box.setText(self.text["romaji"])
-        self.trans_box.setText(self.text["translated"])
+        self.google_box.setText(self.text["google"])
+        self.chatgpt_box.setText(self.text["chatgpt"])
 
     def on_combobox_changed(self, index):
         '''下拉框: 选择语言'''
         if index == 0:
-            gbconfig["target"] = "jpn_vert"
+            gbconfig["ocr_source"] = "jpn_vert"
         elif index == 1:
-            gbconfig["target"] = "jpn"
+            gbconfig["ocr_source"] = "jpn"
 
     def on_click_tesseract(self):
         '''按钮: 启动tesseract截图'''
-        ats = AutoTrans(gbconfig)
+        ats = AutoTrans(gbconfig["save_path"])
         ats.startShot()
+
         # 更新原文框
 
         def new_raw():
             self.msg_box.dataChanged.emit("")
+
         # 更新注音框
 
         def new_romaji():
             self.text["romaji"] = ats.get_romaji(self.text["raw"])
             self.msg_box.dataChanged.emit("")
+
         # 更新翻译框
 
         def new_trans():
-            self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
+            self.text["google"] = ats.get_trans_google(self.text["raw"], gbconfig["trans_source"], gbconfig["google_target"])
+            self.text["chatgpt"] = ats.get_trans_gpt(self.text["raw"], gbconfig["chatgpt_target"], gbconfig["api_key"])
             self.msg_box.dataChanged.emit("")
         try:
             img_path = os.path.join(gbconfig["save_path"], "shot.jpg")
@@ -284,7 +304,7 @@ class PageFunction(QWidget):
             img = Image.open(img_path)
             img_en = enhance(img)
             img_en.save(img_en_path)
-            self.text["raw"] = ats.get_text_img(img, gbconfig["target"])
+            self.text["raw"] = ats.get_text_img(img, gbconfig["ocr_source"])
             th_raw = threading.Thread(target=new_raw)
             th_raw.start()
             th_romaji = threading.Thread(target=new_romaji)
@@ -305,14 +325,15 @@ class PageFunction(QWidget):
         # 等待一段时间，确保截图工具已经启动
         time.sleep(0.5)
 
-
     def on_click_new(self):
         '''按钮: 重新翻译'''
-        ats = AutoTrans(gbconfig)
+        ats = AutoTrans(gbconfig["save_path"])
         self.text["romaji"] = ats.get_romaji(self.text["raw"])
         self.roma_box.setText(self.text["romaji"])
-        self.text["translated"] = ats.get_trans_google(self.text["raw"], gbconfig["source"], gbconfig["translate"])
-        self.trans_box.setText(self.text["translated"])
+        self.text["google"] = ats.get_trans_google(self.text["raw"], gbconfig["trans_source"], gbconfig["google_target"])
+        self.text["chatgpt"] = ats.get_trans_gpt(self.text["raw"], gbconfig["chatgpt_target"], gbconfig["api_key"])
+        self.google_box.setText(self.text["google"])
+        self.chatgpt_box.setText(self.text["chatgpt"])
 
     def on_text_change(self):
         '''文本框: 原文'''
@@ -320,7 +341,7 @@ class PageFunction(QWidget):
 
 
 class PageSettings(QWidget):
-    '''设置标签页'''
+    '''标签页:设置'''
 
     def __init__(self) -> None:
         super().__init__()
@@ -411,26 +432,26 @@ class PageSettings(QWidget):
         '''下拉框被改变'''
         key = __key[2:]
         gbconfig[key] = gbconfig[__key]["options"][index]["value"]
-        with open(abs_path("component/config.json"), "w", encoding="utf-8") as conf_file:
+        with open(abs_path("translator/config.json"), "w", encoding="utf-8") as conf_file:
             conf_file.write(json.dumps(gbconfig, ensure_ascii=False))
 
     def on_lineedit_changed(self, text, __key):
         '''输入框被改变'''
         key = __key[2:]
         gbconfig[key] = text
-        with open(abs_path("component/config.json"), "w", encoding="utf-8") as conf_file:
+        with open(abs_path("translator/config.json"), "w", encoding="utf-8") as conf_file:
             conf_file.write(json.dumps(gbconfig, ensure_ascii=False))
 
     def on_checkbox_changed(self, state, __key):
         '''复选框被改变'''
         key = __key[2:]
         gbconfig[key] = True if state else False
-        with open(abs_path("component/config.json"), "w", encoding="utf-8") as conf_file:
+        with open(abs_path("translator/config.json"), "w", encoding="utf-8") as conf_file:
             conf_file.write(json.dumps(gbconfig, ensure_ascii=False))
 
     def btn_manga_ocr_install(self):
         '''按钮:安装manga-ocr,使用threading避免程序卡死'''
-        install_script = abs_path("component/sp_manga_ocr_install.py")
+        install_script = abs_path("subprocess/sp_manga_ocr_install.py")
 
         def go():
             subprocess.run(["python", install_script], creationflags=subprocess.CREATE_NEW_CONSOLE)
@@ -439,7 +460,7 @@ class PageSettings(QWidget):
 
     def btn_manga_ocr_start(self):
         '''按钮:启动manga-ocr,使用threading避免程序卡死'''
-        install_script = abs_path("component/sp_manga_ocr_start.py")
+        install_script = abs_path("subprocess/sp_manga_ocr_start.py")
 
         def go():
             subprocess.run(["python", install_script], creationflags=subprocess.CREATE_NEW_CONSOLE)
@@ -448,7 +469,7 @@ class PageSettings(QWidget):
 
 
 class PageInfo(QWidget):
-    '''关于标签页'''
+    '''标签页:关于'''
 
     def __init__(self) -> None:
         super().__init__()

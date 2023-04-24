@@ -12,34 +12,25 @@ from PIL import Image
 import pytesseract  # pip install pytesseract # 需要配置pytesseract路径
 from deep_translator import GoogleTranslator  # pip install deep-translator
 import pykakasi  # pip install Cython # pip install pykakasi
+import openai
 
-import sys,os
-script_path =os.path.dirname(os.path.realpath(__file__))
+import sys
+import os
+script_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(script_path)
-from utils_logger import logger
+print(script_path)
+from utils.utils_logger import logger
+
 
 class AutoTrans():
     '''漫画截图翻译'''
 
-    def __init__(self, json_set={}) -> None:
+    def __init__(self, save_path=".") -> None:
         '''带*号标记为必填项'''
-        try:
-            # * 目标路径
-            self.save_path = os.path.normpath(json_set['save_path'])
-            # 日志路径
-            self.path_log = os.path.normpath(json_set['path_log']) if "path_log" in json_set else ""
-            self.path_log = "" if self.path_log == "." else self.path_log
-            # logger.raw_logger.set_path(self.path_log)
-            # * 目标语言
-            self.target = json_set['target']
-            # * 翻译语言
-            self.translate = json_set['translate']
-        except Exception as e:
-            logger.error("key error: %s" % e)
-            return
+
         # 截图文件名和路径
         self.jpg_name = "shot.jpg"
-        self.jpg_path = os.path.join(self.save_path, self.jpg_name)
+        self.jpg_path = os.path.join(save_path, self.jpg_name)
         # 全屏截图句柄
         self.img = ""
         # 全屏截图鼠标位置
@@ -82,52 +73,79 @@ class AutoTrans():
         result = kks.convert(text)
         sentence = ""
         for item in result:
-            word = item['orig']+" (%s) "%item['hira'] if not item['orig']==  item['hira'] else item['orig']
-            sentence+=word
+            word = item['orig'] + " (%s) " % item['hira'] if not item['orig'] == item['hira'] else item['orig']
+            sentence += word
         return sentence
-    
-    def get_text(self,jpg_path,target)->str:
+
+    def get_text(self, jpg_path, target) -> str:
         '''识别图片中的文字,返回去除空格和换行符的字符串'''
         try:
             img = Image.open(jpg_path)
-        except:
-            img = Image.open(os.path.join(jpg_path,"shot.jpg"))
-        return self.get_text_img(img)
-    
-    def get_text_img(self,img,target)->str:
+        except BaseException:
+            img = Image.open(os.path.join(jpg_path, "shot.jpg"))
+        return self.get_text_img(img,target)
+
+    def get_text_img(self, img, target) -> str:
         '''和上面的一样,只是输入参数是使用Image.open读取的img'''
         try:
             text = pytesseract.image_to_string(img, lang=target)
             text = str(text).replace(" ", "").replace("\n", "")
             return text
         except Exception as err:
-            err_msg = "tesseract error : %s" %err
+            err_msg = "tesseract error : %s" % err
             logger.error(err_msg)
             return err_msg
-    
-    def get_trans_google(self,text,source,translate)->str:
+
+    def get_trans_google(self, text, source, target_language) -> str:
         '''调用谷歌接口翻译文本\n
         source = ['ja']\n
-        translate = ['zh-CN']'''
-        translated = GoogleTranslator(source=source, target=translate).translate(text=text)  # Chinese translation
+        target_language = ['zh-CN']'''
+        translated = GoogleTranslator(source=source, target=target_language).translate(text=text)  # Chinese translation
         return translated
 
-    def ocr_trans(self):
-        '''ocr和翻译主函数'''
+    def get_trans_gpt(self, text, target_language, api_key) -> str:
+        '''调用chatgpt接口翻译文本\n
+        translate = ['chinese']'''
+        if text == "":
+            return ""
         try:
-            text = self.get_text(self.jpg_path,self.target)
-            logger.info("target: %s" % text)
-            if self.target in ["jpn", "jpn_vert"]:
-                translated = self.get_trans_google(text,"ja",self.translate)
-                logger.info("romaji: %s" % self.get_romaji(text))
-                logger.info("translate: %s" % translated)
+            openai.api_key = api_key
+            response = openai.Completion.create(
+                engine="text-davinci-002",
+                prompt=f"Translate '{text}' to {target_language}",
+                max_tokens=1024,
+                n=1,
+                stop=None,
+                temperature=0.5,
+            )
+            if response.choices[0].text:
+                return response.choices[0].text.strip()
             else:
-                logger.error("unexpected target : %s" % self.target)
+                return ""
+        except Exception as err:
+            return str(err)
+
+
+    def test(self):
+        '''开始处理'''
+
+        ocr_source = "jpn_vert" # ["jpn","jpn_vert"]
+        google_source = "ja"
+        google_target = "zh-CN" # ["zh-CN"]
+        chatgpt_target = "chinese"
+        api_key = ""
+
+        self.startShot()
+
+        try:
+            text = self.get_text(self.jpg_path, ocr_source)
+            logger.info("sourec: %s" % text)
+            logger.info("romaji: %s" % self.get_romaji(text))
+            logger.info("google: %s" % self.get_trans_google(text, google_source, google_target))
+            logger.info("chatgpt: %s" % self.get_trans_gpt(text,chatgpt_target,api_key))
         except Exception as e:
             logger.error("translate error, %s" % e)
 
-    def run(self):
-        '''开始处理'''
-        logger.info("auto trans function start ...")
-        self.startShot()
-        self.ocr_trans()
+
+if __name__ == "__main__":
+    AutoTrans().test()
