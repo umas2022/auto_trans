@@ -6,7 +6,6 @@ import subprocess
 import sys,os
 script_path =os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(script_path)
-print(script_path)
 
 from utils.utils_path import abs_path
 
